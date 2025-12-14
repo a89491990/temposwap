@@ -1,0 +1,17 @@
+{
+  "name": "temposwap-dex",
+  "version": "1.0.0",
+  "description": "Advanced DEX for Tempo Testnet with MetaMask integration",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve .",
+    "dev": "live-server . --port=3000"
+  },
+  "dependencies": {
+    "web3": "^1.7.0"
+  },
+  "devDependencies": {
+    "serve": "^14.0.0",
+    "live-server": "^1.2.2"
+  }
+}
