@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TempoSwap - Advanced DEX on Tempo Testnet</title>
+    <title>TempoSwap - Complete DEX</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔄</text></svg>">
 </head>
 <body>
@@ -15,11 +15,12 @@
         <div class="loading-content">
             <div class="loading-spinner"></div>
             <p>Loading TempoSwap DEX...</p>
+            <p class="loading-subtext" id="loadingStatus">Initializing application</p>
         </div>
     </div>
 
     <!-- Main Container -->
-    <div class="main-container">
+    <div class="main-container" id="mainContainer">
         <!-- Top Navigation -->
         <nav class="top-nav">
             <div class="nav-left">
@@ -36,27 +37,27 @@
             
             <div class="nav-center">
                 <div class="nav-links">
-                    <a href="#" class="nav-link active">
+                    <a href="#" class="nav-link active" data-page="swap">
                         <i class="fas fa-exchange-alt"></i>
                         <span>Swap</span>
                     </a>
-                    <a href="#" class="nav-link">
+                    <a href="#" class="nav-link" data-page="liquidity">
                         <i class="fas fa-water"></i>
                         <span>Liquidity</span>
                     </a>
-                    <a href="#" class="nav-link">
+                    <a href="#" class="nav-link" data-page="analytics">
                         <i class="fas fa-chart-line"></i>
                         <span>Analytics</span>
                     </a>
-                    <a href="#" class="nav-link">
-                        <i class="fas fa-gift"></i>
-                        <span>Airdrops</span>
+                    <a href="#" class="nav-link" data-page="pools">
+                        <i class="fas fa-swimming-pool"></i>
+                        <span>Pools</span>
                     </a>
                 </div>
             </div>
             
             <div class="nav-right">
-                <div class="network-selector">
+                <div class="network-selector" id="networkSelector">
                     <div class="network-indicator">
                         <div class="network-dot"></div>
                         <span>Tempo Testnet</span>
@@ -84,319 +85,641 @@
             </div>
         </nav>
 
-        <!-- Main Content -->
+        <!-- Main Content Area -->
         <main class="main-content">
-            <!-- Swap Card -->
-            <div class="swap-container">
-                <div class="swap-header">
-                    <div class="swap-title">
-                        <h2><i class="fas fa-exchange-alt"></i> Instant Swap</h2>
-                        <div class="swap-subtitle">Trade tokens instantly on Tempo Testnet</div>
-                    </div>
-                    <div class="swap-actions">
-                        <div class="slippage-settings">
-                            <i class="fas fa-cog"></i>
-                            <span>Slippage: 1%</span>
+            <!-- Swap Page (Default) -->
+            <div class="page active" id="swapPage">
+                <div class="swap-container">
+                    <div class="swap-header">
+                        <div class="swap-title">
+                            <h2><i class="fas fa-exchange-alt"></i> Instant Swap</h2>
+                            <div class="swap-subtitle">Trade tokens instantly on Tempo Testnet</div>
                         </div>
-                        <div class="refresh-rate">
-                            <i class="fas fa-sync-alt"></i>
-                            <span>Live</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="swap-card">
-                    <!-- From Section -->
-                    <div class="swap-section from-section">
-                        <div class="section-label">
-                            <span>From</span>
-                            <div class="balance-info">
-                                <span>Balance: </span>
-                                <span class="balance-amount" id="fromBalance">0.00</span>
-                                <button class="btn-max" id="maxBtn">MAX</button>
+                        <div class="swap-actions">
+                            <div class="slippage-settings" id="slippageSettings">
+                                <i class="fas fa-cog"></i>
+                                <span>Slippage: 1%</span>
+                            </div>
+                            <div class="refresh-rate">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>Live</span>
                             </div>
                         </div>
-                        <div class="token-input-container">
-                            <div class="token-selector" id="fromTokenSelector">
-                                <div class="selected-token">
-                                    <div class="token-logo" id="fromTokenLogo">
-                                        <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" alt="ETH" id="fromTokenImage">
-                                        <div class="token-fallback" id="fromTokenFallback">S</div>
-                                    </div>
-                                    <div class="token-details">
-                                        <div class="token-symbol" id="fromTokenSymbol">Select Token</div>
-                                        <div class="token-name" id="fromTokenName">Choose a token</div>
-                                    </div>
-                                    <i class="fas fa-chevron-down"></i>
+                    </div>
+
+                    <div class="swap-card">
+                        <!-- From Section -->
+                        <div class="swap-section from-section">
+                            <div class="section-label">
+                                <span>From</span>
+                                <div class="balance-info">
+                                    <span>Balance: </span>
+                                    <span class="balance-amount" id="fromBalance">0.00</span>
+                                    <button class="btn-max" id="maxBtn">MAX</button>
                                 </div>
                             </div>
-                            <div class="amount-input">
-                                <input type="number" 
-                                       id="fromAmount" 
-                                       placeholder="0.0" 
-                                       min="0" 
-                                       step="any"
-                                       autocomplete="off">
-                                <div class="amount-fiat" id="fromAmountFiat">≈ $0.00</div>
-                            </div>
-                        </div>
-                        <div class="percentage-buttons">
-                            <button class="btn-percent" data-percent="25">25%</button>
-                            <button class="btn-percent" data-percent="50">50%</button>
-                            <button class="btn-percent" data-percent="75">75%</button>
-                            <button class="btn-percent" data-percent="100" id="maxPercentBtn">MAX</button>
-                        </div>
-                    </div>
-
-                    <!-- Swap Direction -->
-                    <div class="swap-direction">
-                        <button class="btn-switch" id="switchTokensBtn">
-                            <i class="fas fa-arrow-down-arrow-up"></i>
-                        </button>
-                        <div class="swap-rate" id="exchangeRate">
-                            1 ETH = 0.00 USDC
-                        </div>
-                    </div>
-
-                    <!-- To Section -->
-                    <div class="swap-section to-section">
-                        <div class="section-label">
-                            <span>To</span>
-                            <div class="balance-info">
-                                <span>Balance: </span>
-                                <span class="balance-amount" id="toBalance">0.00</span>
-                            </div>
-                        </div>
-                        <div class="token-input-container">
-                            <div class="token-selector" id="toTokenSelector">
-                                <div class="selected-token">
-                                    <div class="token-logo" id="toTokenLogo">
-                                        <img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" alt="USDC" id="toTokenImage">
-                                        <div class="token-fallback" id="toTokenFallback">U</div>
+                            <div class="token-input-container">
+                                <div class="token-selector" id="fromTokenSelector">
+                                    <div class="selected-token">
+                                        <div class="token-logo" id="fromTokenLogo">
+                                            <div class="token-fallback" id="fromTokenFallback">I</div>
+                                        </div>
+                                        <div class="token-details">
+                                            <div class="token-symbol" id="fromTokenSymbol">INSDR</div>
+                                            <div class="token-name" id="fromTokenName">Airdrop Insiders</div>
+                                        </div>
+                                        <i class="fas fa-chevron-down"></i>
                                     </div>
-                                    <div class="token-details">
-                                        <div class="token-symbol" id="toTokenSymbol">USDC</div>
-                                        <div class="token-name" id="toTokenName">USD Coin</div>
-                                    </div>
-                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                                <div class="amount-input">
+                                    <input type="number" 
+                                           id="fromAmount" 
+                                           placeholder="0.0" 
+                                           min="0" 
+                                           step="any"
+                                           autocomplete="off">
+                                    <div class="amount-fiat" id="fromAmountFiat">≈ $0.00</div>
                                 </div>
                             </div>
-                            <div class="amount-input">
-                                <input type="number" 
-                                       id="toAmount" 
-                                       placeholder="0.0" 
-                                       readonly
-                                       autocomplete="off">
-                                <div class="amount-fiat" id="toAmountFiat">≈ $0.00</div>
+                            <div class="percentage-buttons">
+                                <button class="btn-percent" data-percent="25">25%</button>
+                                <button class="btn-percent" data-percent="50">50%</button>
+                                <button class="btn-percent" data-percent="75">75%</button>
+                                <button class="btn-percent" data-percent="100">MAX</button>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Swap Details -->
-                    <div class="swap-details">
-                        <div class="detail-row">
-                            <span class="detail-label">
-                                <i class="fas fa-info-circle"></i>
-                                Expected Output
-                            </span>
-                            <span class="detail-value" id="expectedOutput">0.00 USDC</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">
-                                <i class="fas fa-shield-alt"></i>
-                                Price Impact
-                            </span>
-                            <span class="detail-value positive" id="priceImpact">< 0.01%</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">
-                                <i class="fas fa-percentage"></i>
-                                Liquidity Provider Fee
-                            </span>
-                            <span class="detail-value" id="lpFee">0.00 USDC</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">
-                                <i class="fas fa-exchange-alt"></i>
-                                Minimum Received
-                            </span>
-                            <span class="detail-value" id="minimumReceived">0.00 USDC</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">
-                                <i class="fas fa-bolt"></i>
-                                Route
-                            </span>
-                            <span class="detail-value route-info" id="routeInfo">Direct Swap</span>
-                        </div>
-                    </div>
-
-                    <!-- Connect/Swap Button -->
-                    <button class="btn-swap" id="swapBtn">
-                        <div class="swap-btn-content">
-                            <i class="fas fa-wallet"></i>
-                            <span>Connect Wallet</span>
-                        </div>
-                    </button>
-
-                    <div class="swap-footer">
-                        <div class="liquidity-info">
-                            <i class="fas fa-water"></i>
-                            <span>Liquidity: $12.5M</span>
-                        </div>
-                        <div class="gas-info">
-                            <i class="fas fa-gas-pump"></i>
-                            <span>Gas: ~$0.12</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right Sidebar -->
-            <div class="sidebar">
-                <!-- Portfolio Card -->
-                <div class="card portfolio-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-chart-pie"></i> Portfolio</h3>
-                        <div class="card-actions">
-                            <button class="btn-icon">
-                                <i class="fas fa-plus"></i>
+                        <!-- Swap Direction -->
+                        <div class="swap-direction">
+                            <button class="btn-switch" id="switchTokensBtn">
+                                <i class="fas fa-arrow-down-arrow-up"></i>
                             </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="portfolio-value">
-                            <div class="value-amount" id="portfolioValue">$0.00</div>
-                            <div class="value-change positive">
-                                <i class="fas fa-arrow-up"></i>
-                                <span>+0.00%</span>
+                            <div class="swap-rate" id="exchangeRate">
+                                1 INSDR = 0.1576 AlphaUSD
                             </div>
                         </div>
-                        <div class="portfolio-tokens">
-                            <div class="token-item" id="tokenInsdr">
-                                <div class="token-info">
-                                    <div class="token-logo-small insdr">I</div>
-                                    <div class="token-name">
-                                        <div class="token-symbol-small">INSDR</div>
-                                        <div class="token-fullname">Airdrop Insiders</div>
-                                    </div>
-                                </div>
-                                <div class="token-amount">
-                                    <div class="amount">0.00</div>
-                                    <div class="amount-fiat-small">$0.00</div>
+
+                        <!-- To Section -->
+                        <div class="swap-section to-section">
+                            <div class="section-label">
+                                <span>To</span>
+                                <div class="balance-info">
+                                    <span>Balance: </span>
+                                    <span class="balance-amount" id="toBalance">0.00</span>
                                 </div>
                             </div>
-                            <div class="token-item" id="tokenAlpha">
-                                <div class="token-info">
-                                    <div class="token-logo-small alpha">A</div>
-                                    <div class="token-name">
-                                        <div class="token-symbol-small">AlphaUSD</div>
-                                        <div class="token-fullname">Alpha Stablecoin</div>
+                            <div class="token-input-container">
+                                <div class="token-selector" id="toTokenSelector">
+                                    <div class="selected-token">
+                                        <div class="token-logo" id="toTokenLogo">
+                                            <div class="token-fallback" id="toTokenFallback">A</div>
+                                        </div>
+                                        <div class="token-details">
+                                            <div class="token-symbol" id="toTokenSymbol">AlphaUSD</div>
+                                            <div class="token-name" id="toTokenName">Alpha Stablecoin</div>
+                                        </div>
+                                        <i class="fas fa-chevron-down"></i>
                                     </div>
                                 </div>
-                                <div class="token-amount">
-                                    <div class="amount">0.00</div>
-                                    <div class="amount-fiat-small">$0.00</div>
+                                <div class="amount-input">
+                                    <input type="number" 
+                                           id="toAmount" 
+                                           placeholder="0.0" 
+                                           readonly
+                                           autocomplete="off">
+                                    <div class="amount-fiat" id="toAmountFiat">≈ $0.00</div>
                                 </div>
                             </div>
-                            <div class="token-item" id="tokenBeta">
-                                <div class="token-info">
-                                    <div class="token-logo-small beta">B</div>
-                                    <div class="token-name">
-                                        <div class="token-symbol-small">BetaUSD</div>
-                                        <div class="token-fullname">Beta Stablecoin</div>
-                                    </div>
-                                </div>
-                                <div class="token-amount">
-                                    <div class="amount">0.00</div>
-                                    <div class="amount-fiat-small">$0.00</div>
-                                </div>
+                        </div>
+
+                        <!-- Swap Details -->
+                        <div class="swap-details">
+                            <div class="detail-row">
+                                <span class="detail-label">
+                                    <i class="fas fa-info-circle"></i>
+                                    Expected Output
+                                </span>
+                                <span class="detail-value" id="expectedOutput">0.00 AlphaUSD</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">
+                                    <i class="fas fa-shield-alt"></i>
+                                    Price Impact
+                                </span>
+                                <span class="detail-value positive" id="priceImpact">< 0.01%</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">
+                                    <i class="fas fa-percentage"></i>
+                                    Liquidity Provider Fee
+                                </span>
+                                <span class="detail-value" id="lpFee">0.00 AlphaUSD</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    Minimum Received
+                                </span>
+                                <span class="detail-value" id="minimumReceived">0.00 AlphaUSD</span>
+                            </div>
+                        </div>
+
+                        <!-- Connect/Swap Button -->
+                        <button class="btn-swap" id="swapBtn">
+                            <div class="swap-btn-content">
+                                <i class="fas fa-wallet"></i>
+                                <span>Connect Wallet</span>
+                            </div>
+                        </button>
+
+                        <div class="swap-footer">
+                            <div class="liquidity-info">
+                                <i class="fas fa-water"></i>
+                                <span>Liquidity: $12.5M</span>
+                            </div>
+                            <div class="gas-info">
+                                <i class="fas fa-gas-pump"></i>
+                                <span>Gas: ~$0.12</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Recent Transactions -->
-                <div class="card transactions-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-history"></i> Recent Transactions</h3>
-                        <button class="btn-icon" id="refreshTransactions">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <div class="transactions-list" id="transactionsList">
-                            <div class="empty-state">
-                                <i class="fas fa-exchange-alt"></i>
-                                <p>No transactions yet</p>
-                                <small>Connect wallet to see your transactions</small>
+                <div class="transactions-container">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-history"></i> Recent Swaps</h3>
+                            <button class="btn-icon" id="refreshTransactions">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="transactions-list" id="transactionsList">
+                                <div class="empty-state">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    <p>No swaps yet</p>
+                                    <small>Your swap transactions will appear here</small>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Network Info -->
-                <div class="card network-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-network-wired"></i> Network Info</h3>
+            <!-- Liquidity Page -->
+            <div class="page" id="liquidityPage">
+                <div class="liquidity-container">
+                    <div class="liquidity-header">
+                        <h2><i class="fas fa-water"></i> Liquidity Pools</h2>
+                        <p>Add liquidity to earn trading fees</p>
                     </div>
-                    <div class="card-body">
-                        <div class="network-info-item">
-                            <span class="info-label">Network</span>
-                            <span class="info-value">Tempo Testnet</span>
+
+                    <div class="liquidity-card">
+                        <div class="liquidity-tabs">
+                            <button class="liquidity-tab active" data-tab="add">Add Liquidity</button>
+                            <button class="liquidity-tab" data-tab="remove">Remove Liquidity</button>
+                            <button class="liquidity-tab" data-tab="my-pools">My Pools</button>
+                            <button class="liquidity-tab" data-tab="create">Create Pool</button>
                         </div>
-                        <div class="network-info-item">
-                            <span class="info-label">Chain ID</span>
-                            <span class="info-value">42429</span>
+
+                        <!-- Add Liquidity Tab -->
+                        <div class="tab-content active" data-tab="add">
+                            <div class="liquidity-form">
+                                <div class="form-section">
+                                    <div class="section-label">
+                                        <span>Token Pair</span>
+                                        <span class="pool-share">Your share: 0%</span>
+                                    </div>
+                                    <div class="token-pair-input">
+                                        <div class="token-input" id="liquidityTokenA">
+                                            <div class="token-selector">
+                                                <div class="selected-token">
+                                                    <div class="token-logo">
+                                                        <div class="token-fallback">I</div>
+                                                    </div>
+                                                    <div class="token-details">
+                                                        <div class="token-symbol">INSDR</div>
+                                                        <div class="token-name">Airdrop Insiders</div>
+                                                    </div>
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </div>
+                                            </div>
+                                            <input type="number" placeholder="0.0" id="tokenAAmount">
+                                            <div class="token-balance">
+                                                Balance: <span id="tokenABalance">0.00</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="pair-plus">
+                                            <i class="fas fa-plus"></i>
+                                        </div>
+                                        
+                                        <div class="token-input" id="liquidityTokenB">
+                                            <div class="token-selector">
+                                                <div class="selected-token">
+                                                    <div class="token-logo">
+                                                        <div class="token-fallback">A</div>
+                                                    </div>
+                                                    <div class="token-details">
+                                                        <div class="token-symbol">AlphaUSD</div>
+                                                        <div class="token-name">Alpha Stablecoin</div>
+                                                    </div>
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </div>
+                                            </div>
+                                            <input type="number" placeholder="0.0" id="tokenBAmount">
+                                            <div class="token-balance">
+                                                Balance: <span id="tokenBBalance">0.00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pool-info">
+                                    <div class="info-row">
+                                        <span>Pool Statistics</span>
+                                        <span>INSDR/AlphaUSD</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span>Total Liquidity</span>
+                                        <span>$1,245,890</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span>24h Volume</span>
+                                        <span>$124,589</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span>APY</span>
+                                        <span class="positive">12.45%</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span>Your LP Tokens</span>
+                                        <span>0.00</span>
+                                    </div>
+                                </div>
+
+                                <button class="btn-liquidity" id="addLiquidityBtn">
+                                    <i class="fas fa-plus-circle"></i>
+                                    <span>Add Liquidity</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="network-info-item">
-                            <span class="info-label">RPC URL</span>
-                            <span class="info-value">rpc.testnet.tempo.xyz</span>
+
+                        <!-- Create Pool Tab -->
+                        <div class="tab-content" data-tab="create">
+                            <div class="create-pool-form">
+                                <div class="form-section">
+                                    <h3><i class="fas fa-plus-circle"></i> Create New Pool</h3>
+                                    <p>Create a new liquidity pool for any token pair</p>
+                                    
+                                    <div class="form-group">
+                                        <label>Token A</label>
+                                        <div class="token-selector-full">
+                                            <div class="selected-token">
+                                                <div class="token-logo">
+                                                    <div class="token-fallback">I</div>
+                                                </div>
+                                                <div class="token-details">
+                                                    <div class="token-symbol">INSDR</div>
+                                                    <div class="token-name">Select Token A</div>
+                                                </div>
+                                                <i class="fas fa-chevron-down"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Token B</label>
+                                        <div class="token-selector-full">
+                                            <div class="selected-token">
+                                                <div class="token-logo">
+                                                    <div class="token-fallback">A</div>
+                                                </div>
+                                                <div class="token-details">
+                                                    <div class="token-symbol">AlphaUSD</div>
+                                                    <div class="token-name">Select Token B</div>
+                                                </div>
+                                                <i class="fas fa-chevron-down"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Initial Price (Token A/Token B)</label>
+                                        <input type="number" placeholder="0.1576" id="initialPrice">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Initial Liquidity (Each Token)</label>
+                                        <input type="number" placeholder="1000" id="initialLiquidity">
+                                    </div>
+                                    
+                                    <div class="fee-tier">
+                                        <h4>Fee Tier</h4>
+                                        <div class="fee-options">
+                                            <label class="fee-option">
+                                                <input type="radio" name="fee" value="0.05" checked>
+                                                <span>0.05%</span>
+                                                <small>Best for stable pairs</small>
+                                            </label>
+                                            <label class="fee-option">
+                                                <input type="radio" name="fee" value="0.3">
+                                                <span>0.30%</span>
+                                                <small>Standard</small>
+                                            </label>
+                                            <label class="fee-option">
+                                                <input type="radio" name="fee" value="1">
+                                                <span>1.00%</span>
+                                                <small>Exotic pairs</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <button class="btn-create-pool" id="createPoolBtn">
+                                        <i class="fas fa-plus"></i>
+                                        <span>Create Pool</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="network-info-item">
-                            <span class="info-label">Block Explorer</span>
-                            <span class="info-value">explore.tempo.xyz</span>
+                    </div>
+
+                    <!-- Available Pools -->
+                    <div class="pools-list">
+                        <h3><i class="fas fa-swimming-pool"></i> Available Pools</h3>
+                        <div class="pools-grid">
+                            <div class="pool-card">
+                                <div class="pool-header">
+                                    <div class="pool-tokens">
+                                        <div class="token-pair">
+                                            <div class="token-logo-small insdr">I</div>
+                                            <div class="token-logo-small alpha">A</div>
+                                        </div>
+                                        <div class="pool-name">
+                                            <h4>INSDR/AlphaUSD</h4>
+                                            <span>0.30% Fee</span>
+                                        </div>
+                                    </div>
+                                    <div class="pool-apy positive">12.45% APY</div>
+                                </div>
+                                <div class="pool-stats">
+                                    <div class="stat">
+                                        <span>TVL</span>
+                                        <span>$1.24M</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span>Volume 24h</span>
+                                        <span>$124.5K</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span>Your Liquidity</span>
+                                        <span>$0.00</span>
+                                    </div>
+                                </div>
+                                <button class="btn-add-liquidity">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Add Liquidity</span>
+                                </button>
+                            </div>
+                            
+                            <div class="pool-card">
+                                <div class="pool-header">
+                                    <div class="pool-tokens">
+                                        <div class="token-pair">
+                                            <div class="token-logo-small insdr">I</div>
+                                            <div class="token-logo-small beta">B</div>
+                                        </div>
+                                        <div class="pool-name">
+                                            <h4>INSDR/BetaUSD</h4>
+                                            <span>0.30% Fee</span>
+                                        </div>
+                                    </div>
+                                    <div class="pool-apy positive">10.12% APY</div>
+                                </div>
+                                <div class="pool-stats">
+                                    <div class="stat">
+                                        <span>TVL</span>
+                                        <span>$890.2K</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span>Volume 24h</span>
+                                        <span>$89.0K</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span>Your Liquidity</span>
+                                        <span>$0.00</span>
+                                    </div>
+                                </div>
+                                <button class="btn-add-liquidity">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Add Liquidity</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="network-info-item">
-                            <span class="info-label">Gas Price</span>
-                            <span class="info-value">1.2 Gwei</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Page -->
+            <div class="page" id="analyticsPage">
+                <div class="analytics-container">
+                    <div class="analytics-header">
+                        <h2><i class="fas fa-chart-line"></i> Analytics Dashboard</h2>
+                        <p>Real-time DEX statistics and analytics</p>
+                    </div>
+
+                    <div class="analytics-grid">
+                        <!-- Overview Cards -->
+                        <div class="overview-cards">
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-globe"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>Total Value Locked</h3>
+                                    <div class="stat-value">$5.42M</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+12.4%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>24h Volume</h3>
+                                    <div class="stat-value">$542.8K</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+8.2%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>Total Users</h3>
+                                    <div class="stat-value">12,458</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+5.7%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>Total Fees</h3>
+                                    <div class="stat-value">$16.28K</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+15.3%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chart Section -->
+                        <div class="chart-section">
+                            <div class="chart-header">
+                                <h3>Volume & TVL Chart</h3>
+                                <div class="chart-period">
+                                    <button class="period-btn active">24H</button>
+                                    <button class="period-btn">7D</button>
+                                    <button class="period-btn">30D</button>
+                                    <button class="period-btn">1Y</button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="volumeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Top Pools -->
+                        <div class="top-pools">
+                            <div class="section-header">
+                                <h3><i class="fas fa-trophy"></i> Top Pools by Volume</h3>
+                                <button class="btn-view-all">View All</button>
+                            </div>
+                            <div class="pools-table">
+                                <div class="table-header">
+                                    <div>Pool</div>
+                                    <div>TVL</div>
+                                    <div>Volume 24h</div>
+                                    <div>Fees 24h</div>
+                                    <div>APY</div>
+                                </div>
+                                <div class="table-row">
+                                    <div class="pool-cell">
+                                        <div class="pool-tokens-small">
+                                            <div class="token-logo-xs insdr">I</div>
+                                            <div class="token-logo-xs alpha">A</div>
+                                        </div>
+                                        <span>INSDR/AlphaUSD</span>
+                                    </div>
+                                    <div>$1.24M</div>
+                                    <div>$124.5K</div>
+                                    <div>$373.50</div>
+                                    <div class="positive">12.45%</div>
+                                </div>
+                                <div class="table-row">
+                                    <div class="pool-cell">
+                                        <div class="pool-tokens-small">
+                                            <div class="token-logo-xs insdr">I</div>
+                                            <div class="token-logo-xs beta">B</div>
+                                        </div>
+                                        <span>INSDR/BetaUSD</span>
+                                    </div>
+                                    <div>$890.2K</div>
+                                    <div>$89.0K</div>
+                                    <div>$267.00</div>
+                                    <div class="positive">10.12%</div>
+                                </div>
+                                <div class="table-row">
+                                    <div class="pool-cell">
+                                        <div class="pool-tokens-small">
+                                            <div class="token-logo-xs alpha">A</div>
+                                            <div class="token-logo-xs beta">B</div>
+                                        </div>
+                                        <span>AlphaUSD/BetaUSD</span>
+                                    </div>
+                                    <div>$2.15M</div>
+                                    <div>$215.0K</div>
+                                    <div>$107.50</div>
+                                    <div class="positive">5.25%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Transactions -->
+                        <div class="recent-transactions">
+                            <div class="section-header">
+                                <h3><i class="fas fa-history"></i> Recent Large Swaps</h3>
+                                <button class="btn-view-all">View All</button>
+                            </div>
+                            <div class="tx-list">
+                                <div class="tx-item">
+                                    <div class="tx-type">
+                                        <i class="fas fa-exchange-alt"></i>
+                                        <span>INSDR → AlphaUSD</span>
+                                    </div>
+                                    <div class="tx-amount">$25,420</div>
+                                    <div class="tx-time">2 min ago</div>
+                                </div>
+                                <div class="tx-item">
+                                    <div class="tx-type">
+                                        <i class="fas fa-exchange-alt"></i>
+                                        <span>BetaUSD → ThetaUSD</span>
+                                    </div>
+                                    <div class="tx-amount">$18,750</div>
+                                    <div class="tx-time">15 min ago</div>
+                                </div>
+                                <div class="tx-item">
+                                    <div class="tx-type">
+                                        <i class="fas fa-exchange-alt"></i>
+                                        <span>AlphaUSD → INSDR</span>
+                                    </div>
+                                    <div class="tx-amount">$12,480</div>
+                                    <div class="tx-time">1 hour ago</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </main>
-    </div>
 
-    <!-- Token Selection Modal -->
-    <div class="modal" id="tokenModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Select a Token</h3>
-                <button class="btn-close" id="closeTokenModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="token-search">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="tokenSearch" placeholder="Search token name or paste address">
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="#"><i class="fab fa-github"></i> GitHub</a>
+                    <a href="#"><i class="fas fa-book"></i> Docs</a>
+                    <a href="#"><i class="fas fa-comments"></i> Discord</a>
+                    <a href="#"><i class="fab fa-twitter"></i> Twitter</a>
                 </div>
-                <div class="token-list" id="tokenList">
-                    <!-- Tokens will be populated dynamically -->
-                </div>
-                <div class="token-manage">
-                    <button class="btn-manage-tokens">
-                        <i class="fas fa-cog"></i>
-                        <span>Manage Token Lists</span>
-                    </button>
+                <div class="footer-info">
+                    <span>TempoSwap v2.0 • Tempo Testnet • Chain ID: 42429</span>
                 </div>
             </div>
-        </div>
+        </footer>
     </div>
 
+    <!-- Modals -->
+    
     <!-- Wallet Modal -->
     <div class="modal" id="walletModal">
-        <div class="modal-content wallet-modal">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Connect Wallet</h3>
                 <button class="btn-close" id="closeWalletModal">
@@ -407,14 +730,11 @@
                 <div class="wallet-options">
                     <div class="wallet-option" id="metamaskOption">
                         <div class="wallet-icon">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask">
+                            <i class="fab fa-ethereum"></i>
                         </div>
                         <div class="wallet-info">
                             <h4>MetaMask</h4>
-                            <p>Connect using browser extension</p>
-                        </div>
-                        <div class="wallet-status">
-                            <i class="fas fa-chevron-right"></i>
+                            <p>Connect using browser wallet</p>
                         </div>
                     </div>
                     <div class="wallet-option" id="walletConnectOption">
@@ -425,26 +745,53 @@
                             <h4>WalletConnect</h4>
                             <p>Connect using mobile wallet</p>
                         </div>
-                        <div class="wallet-status">
-                            <i class="fas fa-chevron-right"></i>
-                        </div>
-                    </div>
-                    <div class="wallet-option" id="coinbaseOption">
-                        <div class="wallet-icon">
-                            <i class="fab fa-bitcoin"></i>
-                        </div>
-                        <div class="wallet-info">
-                            <h4>Coinbase Wallet</h4>
-                            <p>Connect using Coinbase app</p>
-                        </div>
-                        <div class="wallet-status">
-                            <i class="fas fa-chevron-right"></i>
-                        </div>
                     </div>
                 </div>
-                <div class="wallet-footer">
-                    <p>By connecting, I accept TempoSwap's <a href="#">Terms of Service</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Token Selection Modal -->
+    <div class="modal" id="tokenModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select Token</h3>
+                <button class="btn-close" id="closeTokenModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="token-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="tokenSearch" placeholder="Search token name or paste address">
                 </div>
+                <div class="token-list" id="tokenList">
+                    <!-- Tokens will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slippage Settings Modal -->
+    <div class="modal" id="slippageModal">
+        <div class="modal-content small-modal">
+            <div class="modal-header">
+                <h3>Slippage Tolerance</h3>
+                <button class="btn-close" id="closeSlippageModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="slippage-options">
+                    <button class="slippage-option" data-slippage="0.5">0.5%</button>
+                    <button class="slippage-option active" data-slippage="1">1%</button>
+                    <button class="slippage-option" data-slippage="2">2%</button>
+                    <div class="custom-slippage">
+                        <input type="number" id="customSlippage" placeholder="Custom" min="0.1" max="50" step="0.1">
+                        <span>%</span>
+                    </div>
+                </div>
+                <button class="btn-save-slippage" id="saveSlippage">Save Settings</button>
             </div>
         </div>
     </div>
@@ -453,10 +800,12 @@
     <div class="toast" id="notificationToast">
         <div class="toast-content">
             <i class="fas fa-check-circle"></i>
-            <span id="toastMessage">Transaction successful!</span>
+            <span id="toastMessage"></span>
         </div>
     </div>
 
+    <!-- Include Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
     <script src="script.js"></script>
 </body>
