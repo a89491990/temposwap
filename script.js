@@ -1,122 +1,732 @@
-// TempoSwap DEX - Complete Fixed Version
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing app...');
-    initApp();
-});
+// TempoSwap DEX - Complete Functionality
 
 // Global state
-let appState = {
+let app = {
     web3: null,
-    currentAccount: null,
-    isWalletConnected: false,
-    userTokens: [],
-    isLoading: true,
-    retryCount: 0
+    account: null,
+    networkId: null,
+    isConnected: false,
+    tokens: {
+        INSDR: { symbol: 'INSDR', name: 'Airdrop Insiders', balance: '990001000', price: 0.1576, color: '#8b5cf6' },
+        AlphaUSD: { symbol: 'AlphaUSD', name: 'Alpha USD', balance: '38999999.917545', price: 1.00, color: '#3b82f6' },
+        BetaUSD: { symbol: 'BetaUSD', name: 'Beta USD', balance: '1000000', price: 1.00, color: '#10b981' },
+        ThetaUSD: { symbol: 'ThetaUSD', name: 'Theta USD', balance: '1000000', price: 1.00, color: '#f59e0b' }
+    },
+    pools: [
+        { pair: 'INSDR/AlphaUSD', tvl: 1245890, volume24h: 124589, apy: 12.45, fee: 0.3 },
+        { pair: 'INSDR/BetaUSD', tvl: 890200, volume24h: 89000, apy: 10.12, fee: 0.3 },
+        { pair: 'AlphaUSD/BetaUSD', tvl: 2150000, volume24h: 215000, apy: 5.25, fee: 0.05 }
+    ],
+    slippage: 1,
+    currentPage: 'swap'
 };
 
 // Initialize application
-async function initApp() {
-    console.log('Initializing application...');
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('Initializing TempoSwap DEX...');
     
-    try {
-        // Show loading screen
-        showLoading('Initializing DEX...');
-        
-        // Initialize UI components first
-        initUI();
-        
-        // Check for Web3 provider
-        await checkWeb3Availability();
-        
-        // Check for existing wallet connection
-        await checkExistingConnection();
-        
-        // Initialize default tokens
-        initDefaultTokens();
-        
-        // Hide loading and show main content
-        setTimeout(() => {
-            hideLoading();
-            showMainContent();
-            console.log('Application initialized successfully');
-        }, 1000);
-        
-    } catch (error) {
-        console.error('Initialization error:', error);
-        showLoadingError('Failed to initialize. Please refresh the page.');
-    }
-}
+    // Initialize UI
+    initUI();
+    
+    // Initialize Web3
+    await initWeb3();
+    
+    // Load initial data
+    loadInitialData();
+    
+    // Show main content
+    setTimeout(() => {
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('mainContainer').style.display = 'block';
+        console.log('DEX initialized successfully');
+    }, 1000);
+});
 
 // Initialize UI components
 function initUI() {
-    console.log('Initializing UI components...');
+    // Navigation
+    initNavigation();
     
-    // Remove any existing event listeners first
-    removeAllEventListeners();
+    // Swap functionality
+    initSwap();
     
-    // Initialize buttons and event listeners
-    initButtons();
+    // Liquidity functionality
+    initLiquidity();
+    
+    // Analytics functionality
+    initAnalytics();
+    
+    // Modals
     initModals();
-    initTokenSelection();
-    initSwapControls();
     
-    // Update initial UI state
-    updateUIState();
+    // Event listeners
+    initEventListeners();
 }
 
-// Initialize buttons
-function initButtons() {
-    // Wallet buttons
-    const connectBtn = document.getElementById('connectWalletBtn');
-    const disconnectBtn = document.getElementById('disconnectBtn');
+// Initialize navigation
+function initNavigation() {
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const page = this.dataset.page;
+            
+            // Update active link
+            navLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Show selected page
+            showPage(page);
+        });
+    });
+}
+
+// Show page
+function showPage(page) {
+    // Hide all pages
+    document.querySelectorAll('.page').forEach(p => {
+        p.classList.remove('active');
+    });
     
-    if (connectBtn) {
-        connectBtn.addEventListener('click', showWalletModal);
+    // Show selected page
+    document.getElementById(`${page}Page`).classList.add('active');
+    app.currentPage = page;
+    
+    // Load page-specific data
+    switch(page) {
+        case 'swap':
+            updateSwapView();
+            break;
+        case 'liquidity':
+            updateLiquidityView();
+            break;
+        case 'analytics':
+            updateAnalyticsView();
+            break;
     }
-    
-    if (disconnectBtn) {
-        disconnectBtn.addEventListener('click', disconnectWallet);
+}
+
+// Initialize Web3
+async function initWeb3() {
+    if (typeof window.ethereum !== 'undefined') {
+        try {
+            app.web3 = new Web3(window.ethereum);
+            console.log('Web3 initialized');
+            
+            // Get network ID
+            app.networkId = await ethereum.request({ method: 'net_version' });
+            console.log('Network ID:', app.networkId);
+            
+            // Check if connected to Tempo Testnet
+            if (app.networkId !== '42429') {
+                showToast('Please switch to Tempo Testnet (Chain ID: 42429)', 'warning');
+            }
+            
+            // Listen for account changes
+            ethereum.on('accountsChanged', handleAccountsChanged);
+            
+            // Listen for network changes
+            ethereum.on('chainChanged', handleChainChanged);
+            
+        } catch (error) {
+            console.error('Error initializing Web3:', error);
+            showToast('Failed to initialize Web3 provider', 'error');
+        }
+    } else {
+        console.warn('No Web3 provider found');
+        showToast('Please install MetaMask to use all features', 'warning');
     }
-    
-    // Swap controls
-    const swapBtn = document.getElementById('swapBtn');
-    const switchBtn = document.getElementById('switchTokensBtn');
-    const maxBtn = document.getElementById('maxBtn');
-    
-    if (swapBtn) {
-        swapBtn.addEventListener('click', handleSwap);
-    }
-    
-    if (switchBtn) {
-        switchBtn.addEventListener('click', switchTokens);
-    }
-    
-    if (maxBtn) {
-        maxBtn.addEventListener('click', setMaxAmount);
-    }
+}
+
+// Initialize swap functionality
+function initSwap() {
+    // From token amount input
+    const fromAmountInput = document.getElementById('fromAmount');
+    fromAmountInput.addEventListener('input', updateSwapCalculation);
     
     // Percentage buttons
     document.querySelectorAll('.btn-percent').forEach(btn => {
         btn.addEventListener('click', function() {
-            const percent = this.dataset.percent;
-            setPercentageAmount(percent);
+            const percent = parseInt(this.dataset.percent);
+            setSwapAmountPercentage(percent);
         });
     });
     
-    // Retry button
-    const retryBtn = document.getElementById('retryBtn');
-    if (retryBtn) {
-        retryBtn.addEventListener('click', retryInitialization);
+    // Max button
+    document.getElementById('maxBtn').addEventListener('click', setMaxAmount);
+    
+    // Switch tokens button
+    document.getElementById('switchTokensBtn').addEventListener('click', switchTokens);
+    
+    // Update initial swap view
+    updateSwapView();
+}
+
+// Update swap view
+function updateSwapView() {
+    // Set token logos and names
+    updateTokenDisplay('from', 'INSDR');
+    updateTokenDisplay('to', 'AlphaUSD');
+    
+    // Update balances
+    updateSwapBalances();
+    
+    // Update swap button
+    updateSwapButton();
+}
+
+// Update token display
+function updateTokenDisplay(side, symbol) {
+    const token = app.tokens[symbol];
+    if (!token) return;
+    
+    const element = document.getElementById(`${side}Token${side === 'from' ? 'Logo' : 'Logo'}`);
+    const fallback = document.getElementById(`${side}TokenFallback`);
+    const symbolEl = document.getElementById(`${side}TokenSymbol`);
+    const nameEl = document.getElementById(`${side}TokenName`);
+    
+    if (fallback) {
+        fallback.textContent = symbol.charAt(0);
+        fallback.style.background = token.color;
+        fallback.className = `token-fallback ${symbol.toLowerCase().replace('usd', '')}`;
     }
+    
+    if (symbolEl) symbolEl.textContent = symbol;
+    if (nameEl) nameEl.textContent = token.name;
+}
+
+// Update swap balances
+function updateSwapBalances() {
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const toSymbol = document.getElementById('toTokenSymbol').textContent;
+    
+    const fromToken = app.tokens[fromSymbol];
+    const toToken = app.tokens[toSymbol];
+    
+    if (fromToken) {
+        document.getElementById('fromBalance').textContent = formatNumber(parseFloat(fromToken.balance));
+    }
+    
+    if (toToken) {
+        document.getElementById('toBalance').textContent = formatNumber(parseFloat(toToken.balance));
+    }
+}
+
+// Update swap calculation
+function updateSwapCalculation() {
+    const fromAmount = parseFloat(document.getElementById('fromAmount').value) || 0;
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const toSymbol = document.getElementById('toTokenSymbol').textContent;
+    
+    if (fromAmount <= 0) {
+        resetSwapOutput();
+        return;
+    }
+    
+    // Get token prices
+    const fromToken = app.tokens[fromSymbol];
+    const toToken = app.tokens[toSymbol];
+    
+    if (!fromToken || !toToken) return;
+    
+    // Calculate exchange rate
+    const exchangeRate = (toToken.price / fromToken.price).toFixed(6);
+    const toAmount = fromAmount * exchangeRate;
+    
+    // Update UI
+    document.getElementById('toAmount').value = toAmount.toFixed(6);
+    document.getElementById('exchangeRate').textContent = `1 ${fromSymbol} = ${exchangeRate} ${toSymbol}`;
+    
+    // Calculate fiat values
+    const fromValue = fromAmount * fromToken.price;
+    const toValue = toAmount * toToken.price;
+    
+    document.getElementById('fromAmountFiat').textContent = `≈ $${formatNumber(fromValue)}`;
+    document.getElementById('toAmountFiat').textContent = `≈ $${formatNumber(toValue)}`;
+    
+    // Calculate fees and minimum received
+    const lpFee = toAmount * 0.003; // 0.30%
+    const minReceived = toAmount * ((100 - app.slippage) / 100);
+    
+    document.getElementById('expectedOutput').textContent = `${toAmount.toFixed(6)} ${toSymbol}`;
+    document.getElementById('lpFee').textContent = `${lpFee.toFixed(6)} ${toSymbol}`;
+    document.getElementById('minimumReceived').textContent = `${minReceived.toFixed(6)} ${toSymbol}`;
+    
+    // Update price impact (simulated)
+    const priceImpact = fromAmount > 1000 ? (fromAmount / 100000).toFixed(2) : '< 0.01';
+    document.getElementById('priceImpact').textContent = `${priceImpact}%`;
+    
+    // Update swap button
+    updateSwapButton();
+}
+
+// Reset swap output
+function resetSwapOutput() {
+    document.getElementById('toAmount').value = '';
+    document.getElementById('fromAmountFiat').textContent = '≈ $0.00';
+    document.getElementById('toAmountFiat').textContent = '≈ $0.00';
+    document.getElementById('expectedOutput').textContent = '0.00';
+    document.getElementById('lpFee').textContent = '0.00';
+    document.getElementById('minimumReceived').textContent = '0.00';
+    updateSwapButton();
+}
+
+// Set swap amount percentage
+function setSwapAmountPercentage(percent) {
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const fromToken = app.tokens[fromSymbol];
+    
+    if (fromToken) {
+        const balance = parseFloat(fromToken.balance);
+        const amount = (balance * percent) / 100;
+        document.getElementById('fromAmount').value = amount;
+        updateSwapCalculation();
+    }
+}
+
+// Set max amount
+function setMaxAmount() {
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const fromToken = app.tokens[fromSymbol];
+    
+    if (fromToken) {
+        document.getElementById('fromAmount').value = fromToken.balance;
+        updateSwapCalculation();
+    }
+}
+
+// Switch tokens
+function switchTokens() {
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const toSymbol = document.getElementById('toTokenSymbol').textContent;
+    const fromAmount = document.getElementById('fromAmount').value;
+    const toAmount = document.getElementById('toAmount').value;
+    
+    // Swap tokens
+    updateTokenDisplay('from', toSymbol);
+    updateTokenDisplay('to', fromSymbol);
+    
+    // Swap amounts
+    document.getElementById('fromAmount').value = toAmount;
+    document.getElementById('toAmount').value = fromAmount;
+    
+    // Update calculation
+    updateSwapCalculation();
+    updateSwapBalances();
+}
+
+// Update swap button
+function updateSwapButton() {
+    const swapBtn = document.getElementById('swapBtn');
+    const fromAmount = parseFloat(document.getElementById('fromAmount').value) || 0;
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const fromToken = app.tokens[fromSymbol];
+    
+    if (!app.isConnected) {
+        swapBtn.innerHTML = `
+            <div class="swap-btn-content">
+                <i class="fas fa-wallet"></i>
+                <span>Connect Wallet</span>
+            </div>
+        `;
+        swapBtn.disabled = false;
+        return;
+    }
+    
+    if (fromAmount <= 0) {
+        swapBtn.innerHTML = `
+            <div class="swap-btn-content">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Enter Amount</span>
+            </div>
+        `;
+        swapBtn.disabled = true;
+    } else if (fromToken && fromAmount > parseFloat(fromToken.balance)) {
+        swapBtn.innerHTML = `
+            <div class="swap-btn-content">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Insufficient Balance</span>
+            </div>
+        `;
+        swapBtn.disabled = true;
+    } else {
+        swapBtn.innerHTML = `
+            <div class="swap-btn-content">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Swap</span>
+            </div>
+        `;
+        swapBtn.disabled = false;
+    }
+}
+
+// Initialize liquidity functionality
+function initLiquidity() {
+    // Liquidity tabs
+    document.querySelectorAll('.liquidity-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.dataset.tab;
+            
+            // Update active tab
+            document.querySelectorAll('.liquidity-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Show tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+                if (content.dataset.tab === tabName) {
+                    content.classList.add('active');
+                }
+            });
+        });
+    });
+    
+    // Add liquidity button
+    document.getElementById('addLiquidityBtn').addEventListener('click', addLiquidity);
+    
+    // Create pool button
+    document.getElementById('createPoolBtn').addEventListener('click', createPool);
+    
+    // Token amount inputs for liquidity
+    document.getElementById('tokenAAmount').addEventListener('input', updateLiquidityCalculation);
+    document.getElementById('tokenBAmount').addEventListener('input', updateLiquidityCalculation);
+    
+    // Update liquidity view
+    updateLiquidityView();
+}
+
+// Update liquidity view
+function updateLiquidityView() {
+    // Update token balances
+    updateLiquidityBalances();
+    
+    // Update pool cards
+    updatePoolCards();
+}
+
+// Update liquidity balances
+function updateLiquidityBalances() {
+    document.getElementById('tokenABalance').textContent = formatNumber(parseFloat(app.tokens.INSDR.balance));
+    document.getElementById('tokenBBalance').textContent = formatNumber(parseFloat(app.tokens.AlphaUSD.balance));
+}
+
+// Update liquidity calculation
+function updateLiquidityCalculation() {
+    const tokenAAmount = parseFloat(document.getElementById('tokenAAmount').value) || 0;
+    const tokenBAmount = parseFloat(document.getElementById('tokenBAmount').value) || 0;
+    
+    // Simple validation
+    if (tokenAAmount > 0 && tokenBAmount > 0) {
+        // Calculate pool share (simulated)
+        const poolShare = Math.min(tokenAAmount / 1000, tokenBAmount / 1000) * 100;
+        document.querySelector('.pool-share').textContent = `Your share: ${poolShare.toFixed(2)}%`;
+    }
+}
+
+// Add liquidity
+function addLiquidity() {
+    if (!app.isConnected) {
+        showWalletModal();
+        return;
+    }
+    
+    const tokenAAmount = parseFloat(document.getElementById('tokenAAmount').value) || 0;
+    const tokenBAmount = parseFloat(document.getElementById('tokenBAmount').value) || 0;
+    
+    if (tokenAAmount <= 0 || tokenBAmount <= 0) {
+        showToast('Please enter amounts for both tokens', 'warning');
+        return;
+    }
+    
+    // Simulate adding liquidity
+    showToast('Adding liquidity to pool...', 'info');
+    
+    setTimeout(() => {
+        showToast('Liquidity added successfully!', 'success');
+        document.getElementById('tokenAAmount').value = '';
+        document.getElementById('tokenBAmount').value = '';
+        document.querySelector('.pool-share').textContent = 'Your share: 0%';
+    }, 2000);
+}
+
+// Create pool
+function createPool() {
+    if (!app.isConnected) {
+        showWalletModal();
+        return;
+    }
+    
+    const initialPrice = parseFloat(document.getElementById('initialPrice').value);
+    const initialLiquidity = parseFloat(document.getElementById('initialLiquidity').value);
+    const feeTier = document.querySelector('input[name="fee"]:checked').value;
+    
+    if (!initialPrice || !initialLiquidity) {
+        showToast('Please fill all fields', 'warning');
+        return;
+    }
+    
+    // Simulate pool creation
+    showToast('Creating new pool...', 'info');
+    
+    setTimeout(() => {
+        showToast('Pool created successfully!', 'success');
+        
+        // Add to pools list
+        const newPool = {
+            pair: 'NEW/POOL',
+            tvl: initialLiquidity * 2,
+            volume24h: 0,
+            apy: 15.00,
+            fee: parseFloat(feeTier)
+        };
+        app.pools.unshift(newPool);
+        
+        // Update pool cards
+        updatePoolCards();
+        
+        // Reset form
+        document.getElementById('initialPrice').value = '';
+        document.getElementById('initialLiquidity').value = '';
+    }, 3000);
+}
+
+// Update pool cards
+function updatePoolCards() {
+    const poolsGrid = document.querySelector('.pools-grid');
+    if (!poolsGrid) return;
+    
+    // Clear existing cards except first two (template)
+    const existingCards = poolsGrid.querySelectorAll('.pool-card');
+    for (let i = 2; i < existingCards.length; i++) {
+        existingCards[i].remove();
+    }
+    
+    // Add pool cards
+    app.pools.forEach(pool => {
+        const [tokenA, tokenB] = pool.pair.split('/');
+        const poolCard = document.createElement('div');
+        poolCard.className = 'pool-card';
+        poolCard.innerHTML = `
+            <div class="pool-header">
+                <div class="pool-tokens">
+                    <div class="token-pair">
+                        <div class="token-logo-small ${tokenA.toLowerCase().replace('usd', '')}">${tokenA.charAt(0)}</div>
+                        <div class="token-logo-small ${tokenB.toLowerCase().replace('usd', '')}">${tokenB.charAt(0)}</div>
+                    </div>
+                    <div class="pool-name">
+                        <h4>${pool.pair}</h4>
+                        <span>${pool.fee}% Fee</span>
+                    </div>
+                </div>
+                <div class="pool-apy positive">${pool.apy.toFixed(2)}% APY</div>
+            </div>
+            <div class="pool-stats">
+                <div class="stat">
+                    <span>TVL</span>
+                    <span>$${formatNumber(pool.tvl)}</span>
+                </div>
+                <div class="stat">
+                    <span>Volume 24h</span>
+                    <span>$${formatNumber(pool.volume24h)}</span>
+                </div>
+                <div class="stat">
+                    <span>Your Liquidity</span>
+                    <span>$0.00</span>
+                </div>
+            </div>
+            <button class="btn-add-liquidity">
+                <i class="fas fa-plus"></i>
+                <span>Add Liquidity</span>
+            </button>
+        `;
+        
+        poolsGrid.appendChild(poolCard);
+        
+        // Add event listener to the new button
+        const addBtn = poolCard.querySelector('.btn-add-liquidity');
+        addBtn.addEventListener('click', function() {
+            showToast(`Adding liquidity to ${pool.pair} pool...`, 'info');
+            setTimeout(() => {
+                showToast('Liquidity added successfully!', 'success');
+            }, 2000);
+        });
+    });
+}
+
+// Initialize analytics functionality
+function initAnalytics() {
+    // Initialize chart
+    initChart();
+    
+    // Period buttons
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Update chart data based on period
+            const period = this.textContent;
+            updateChartData(period);
+        });
+    });
+    
+    // Update analytics view
+    updateAnalyticsView();
+}
+
+// Update analytics view
+function updateAnalyticsView() {
+    // Update chart
+    updateChartData('24H');
+    
+    // Update statistics
+    updateAnalyticsStats();
+}
+
+// Initialize chart
+function initChart() {
+    const ctx = document.getElementById('volumeChart').getContext('2d');
+    
+    // Chart configuration
+    window.volumeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Volume',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'TVL',
+                    data: [],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#cbd5e1',
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                    titleColor: '#f1f5f9',
+                    bodyColor: '#cbd5e1',
+                    borderColor: '#475569',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(71, 85, 105, 0.3)'
+                    },
+                    ticks: {
+                        color: '#94a3b8'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(71, 85, 105, 0.3)'
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        callback: function(value) {
+                            return '$' + formatNumber(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Update chart data
+function updateChartData(period) {
+    let labels, volumeData, tvlData;
+    
+    // Generate sample data based on period
+    switch(period) {
+        case '24H':
+            labels = Array.from({length: 24}, (_, i) => `${i}:00`);
+            volumeData = generateRandomData(24, 100000, 200000);
+            tvlData = generateRandomData(24, 4000000, 6000000);
+            break;
+        case '7D':
+            labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            volumeData = generateRandomData(7, 500000, 1500000);
+            tvlData = generateRandomData(7, 4000000, 5500000);
+            break;
+        case '30D':
+            labels = Array.from({length: 30}, (_, i) => `Day ${i + 1}`);
+            volumeData = generateRandomData(30, 1000000, 3000000);
+            tvlData = generateRandomData(30, 3500000, 5500000);
+            break;
+        case '1Y':
+            labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            volumeData = generateRandomData(12, 2000000, 5000000);
+            tvlData = generateRandomData(12, 3000000, 6000000);
+            break;
+    }
+    
+    // Update chart
+    if (window.volumeChart) {
+        window.volumeChart.data.labels = labels;
+        window.volumeChart.data.datasets[0].data = volumeData;
+        window.volumeChart.data.datasets[1].data = tvlData;
+        window.volumeChart.update();
+    }
+}
+
+// Generate random data for chart
+function generateRandomData(count, min, max) {
+    return Array.from({length: count}, () => 
+        Math.floor(Math.random() * (max - min + 1)) + min
+    );
+}
+
+// Update analytics statistics
+function updateAnalyticsStats() {
+    // Calculate total TVL
+    const totalTVL = app.pools.reduce((sum, pool) => sum + pool.tvl, 0);
+    const totalVolume = app.pools.reduce((sum, pool) => sum + pool.volume24h, 0);
+    
+    // Update cards (these would be dynamic in a real app)
+    console.log('Analytics stats updated');
 }
 
 // Initialize modals
 function initModals() {
     // Wallet modal
-    const walletModal = document.getElementById('walletModal');
+    const connectBtn = document.getElementById('connectWalletBtn');
     const closeWalletModal = document.getElementById('closeWalletModal');
     const metamaskOption = document.getElementById('metamaskOption');
+    const walletConnectOption = document.getElementById('walletConnectOption');
+    
+    if (connectBtn) {
+        connectBtn.addEventListener('click', showWalletModal);
+    }
     
     if (closeWalletModal) {
         closeWalletModal.addEventListener('click', () => hideModal('walletModal'));
@@ -126,14 +736,16 @@ function initModals() {
         metamaskOption.addEventListener('click', connectMetaMask);
     }
     
+    if (walletConnectOption) {
+        walletConnectOption.addEventListener('click', () => {
+            showToast('WalletConnect integration coming soon!', 'info');
+        });
+    }
+    
     // Token modal
-    const closeTokenModal = document.getElementById('closeTokenModal');
     const fromTokenSelector = document.getElementById('fromTokenSelector');
     const toTokenSelector = document.getElementById('toTokenSelector');
-    
-    if (closeTokenModal) {
-        closeTokenModal.addEventListener('click', () => hideModal('tokenModal'));
-    }
+    const closeTokenModal = document.getElementById('closeTokenModal');
     
     if (fromTokenSelector) {
         fromTokenSelector.addEventListener('click', () => showTokenModal('from'));
@@ -143,65 +755,78 @@ function initModals() {
         toTokenSelector.addEventListener('click', () => showTokenModal('to'));
     }
     
-    // Close modals on outside click
-    window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            hideModal(event.target.id);
-        }
-    });
-}
-
-// Initialize token selection
-function initTokenSelection() {
-    // Set default tokens
-    setToken('from', 'INSDR');
-    setToken('to', 'AlphaUSD');
-    
-    // Initialize token list
-    updateTokenList();
+    if (closeTokenModal) {
+        closeTokenModal.addEventListener('click', () => hideModal('tokenModal'));
+    }
     
     // Token search
     const tokenSearch = document.getElementById('tokenSearch');
     if (tokenSearch) {
         tokenSearch.addEventListener('input', searchTokens);
     }
-}
-
-// Initialize swap controls
-function initSwapControls() {
-    const fromAmountInput = document.getElementById('fromAmount');
-    if (fromAmountInput) {
-        fromAmountInput.addEventListener('input', updateSwapQuote);
-        fromAmountInput.addEventListener('change', updateSwapQuote);
+    
+    // Slippage modal
+    const slippageSettings = document.getElementById('slippageSettings');
+    const closeSlippageModal = document.getElementById('closeSlippageModal');
+    const saveSlippage = document.getElementById('saveSlippage');
+    
+    if (slippageSettings) {
+        slippageSettings.addEventListener('click', () => showModal('slippageModal'));
+    }
+    
+    if (closeSlippageModal) {
+        closeSlippageModal.addEventListener('click', () => hideModal('slippageModal'));
+    }
+    
+    if (saveSlippage) {
+        saveSlippage.addEventListener('click', saveSlippageSettings);
+    }
+    
+    // Slippage options
+    document.querySelectorAll('.slippage-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.slippage-option').forEach(o => o.classList.remove('active'));
+            this.classList.add('active');
+            const slippage = parseFloat(this.dataset.slippage);
+            document.getElementById('customSlippage').value = '';
+            app.slippage = slippage;
+            document.querySelector('#slippageSettings span').textContent = `Slippage: ${slippage}%`;
+        });
+    });
+    
+    // Custom slippage input
+    const customSlippage = document.getElementById('customSlippage');
+    if (customSlippage) {
+        customSlippage.addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            if (!isNaN(value) && value >= 0.1 && value <= 50) {
+                document.querySelectorAll('.slippage-option').forEach(o => o.classList.remove('active'));
+                app.slippage = value;
+            }
+        });
     }
 }
 
-// Check Web3 availability
-async function checkWeb3Availability() {
-    return new Promise((resolve) => {
-        if (typeof window.ethereum !== 'undefined') {
-            console.log('Web3 provider detected');
-            resolve(true);
-        } else {
-            console.log('No Web3 provider found');
-            showToast('Please install MetaMask to use all features', 'warning');
-            resolve(false);
+// Show modal
+function showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        
+        // Initialize token list if showing token modal
+        if (modalId === 'tokenModal') {
+            populateTokenList();
         }
-    });
+    }
 }
 
-// Check existing connection
-async function checkExistingConnection() {
-    if (typeof window.ethereum === 'undefined') return;
-    
-    try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-            console.log('Found existing connection:', accounts[0]);
-            await handleWalletConnection(accounts[0]);
-        }
-    } catch (error) {
-        console.error('Error checking existing connection:', error);
+// Hide modal
+function hideModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
     }
 }
 
@@ -219,53 +844,40 @@ async function connectMetaMask() {
     }
     
     try {
-        showLoading('Connecting to MetaMask...');
-        
-        const accounts = await window.ethereum.request({ 
-            method: 'eth_requestAccounts' 
-        });
+        // Request account access
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
         
         if (accounts.length > 0) {
-            await handleWalletConnection(accounts[0]);
+            app.account = accounts[0];
+            app.isConnected = true;
+            
+            // Update UI
+            updateWalletUI();
+            
+            // Hide modal
             hideModal('walletModal');
+            
+            // Show success message
             showToast('Wallet connected successfully!', 'success');
+            
+            console.log('Connected account:', app.account);
         }
-        
     } catch (error) {
-        console.error('MetaMask connection error:', error);
-        showToast('Failed to connect wallet', 'error');
-    } finally {
-        hideLoading();
+        console.error('Error connecting to MetaMask:', error);
+        
+        if (error.code === 4001) {
+            showToast('Please connect your wallet to continue', 'warning');
+        } else {
+            showToast('Failed to connect wallet', 'error');
+        }
     }
-}
-
-// Handle wallet connection
-async function handleWalletConnection(account) {
-    appState.currentAccount = account;
-    appState.isWalletConnected = true;
-    
-    // Initialize Web3
-    appState.web3 = new Web3(window.ethereum);
-    
-    // Update UI
-    updateWalletUI();
-    
-    // Load user tokens (simulated)
-    await loadUserTokens();
-    
-    // Update portfolio
-    updatePortfolio();
 }
 
 // Disconnect wallet
 function disconnectWallet() {
-    appState.currentAccount = null;
-    appState.isWalletConnected = false;
-    appState.web3 = null;
-    appState.userTokens = [];
-    
+    app.account = null;
+    app.isConnected = false;
     updateWalletUI();
-    resetTokenBalances();
     showToast('Wallet disconnected', 'info');
 }
 
@@ -273,33 +885,45 @@ function disconnectWallet() {
 function updateWalletUI() {
     const connectBtn = document.getElementById('connectWalletBtn');
     const walletInfo = document.getElementById('walletInfo');
+    const walletAddress = document.getElementById('walletAddress');
+    const walletBalance = document.getElementById('walletBalance');
     const swapBtn = document.getElementById('swapBtn');
     
-    if (appState.isWalletConnected && appState.currentAccount) {
+    if (app.isConnected && app.account) {
         // Show connected state
-        if (connectBtn) connectBtn.style.display = 'none';
-        if (walletInfo) {
-            walletInfo.style.display = 'flex';
-            const addressEl = document.getElementById('walletAddress');
-            if (addressEl) {
-                addressEl.textContent = `${appState.currentAccount.slice(0, 6)}...${appState.currentAccount.slice(-4)}`;
-            }
+        connectBtn.style.display = 'none';
+        walletInfo.style.display = 'flex';
+        
+        // Update address display
+        if (walletAddress) {
+            walletAddress.textContent = `${app.account.slice(0, 6)}...${app.account.slice(-4)}`;
+        }
+        
+        // Update balance (simulated)
+        if (walletBalance) {
+            const totalBalance = Object.values(app.tokens).reduce((sum, token) => {
+                return sum + (parseFloat(token.balance) * token.price);
+            }, 0);
+            walletBalance.textContent = `$${formatNumber(totalBalance)}`;
         }
         
         // Update swap button
         if (swapBtn) {
-            swapBtn.innerHTML = `
-                <div class="swap-btn-content">
-                    <i class="fas fa-exchange-alt"></i>
-                    <span>Swap Now</span>
-                </div>
-            `;
-            swapBtn.disabled = false;
+            const fromAmount = parseFloat(document.getElementById('fromAmount').value) || 0;
+            if (fromAmount > 0) {
+                swapBtn.innerHTML = `
+                    <div class="swap-btn-content">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Swap</span>
+                    </div>
+                `;
+                swapBtn.disabled = false;
+            }
         }
     } else {
         // Show disconnected state
-        if (connectBtn) connectBtn.style.display = 'flex';
-        if (walletInfo) walletInfo.style.display = 'none';
+        connectBtn.style.display = 'flex';
+        walletInfo.style.display = 'none';
         
         // Update swap button
         if (swapBtn) {
@@ -314,186 +938,58 @@ function updateWalletUI() {
     }
 }
 
-// Load user tokens (simulated)
-async function loadUserTokens() {
-    // Simulated token data
-    appState.userTokens = [
-        { symbol: 'INSDR', balance: '990001000', priceUSD: 0.1576 },
-        { symbol: 'AlphaUSD', balance: '38999999.917545', priceUSD: 1.00 },
-        { symbol: 'BetaUSD', balance: '1000000', priceUSD: 1.00 },
-        { symbol: 'ThetaUSD', balance: '1000000', priceUSD: 1.00 }
-    ];
-    
-    updateTokenBalances();
-    updateTokenList();
-}
-
-// Update token balances in UI
-function updateTokenBalances() {
-    // Update from token balance
-    const fromSymbol = document.getElementById('fromTokenSymbol')?.textContent;
-    const fromToken = appState.userTokens.find(t => t.symbol === fromSymbol);
-    const fromBalanceEl = document.getElementById('fromBalance');
-    
-    if (fromBalanceEl && fromToken) {
-        fromBalanceEl.textContent = formatNumber(parseFloat(fromToken.balance));
+// Handle account changes
+function handleAccountsChanged(accounts) {
+    if (accounts.length === 0) {
+        // User disconnected wallet
+        app.account = null;
+        app.isConnected = false;
+        showToast('Wallet disconnected', 'info');
+    } else if (accounts[0] !== app.account) {
+        // User switched accounts
+        app.account = accounts[0];
+        showToast('Account changed', 'info');
     }
-    
-    // Update to token balance
-    const toSymbol = document.getElementById('toTokenSymbol')?.textContent;
-    const toToken = appState.userTokens.find(t => t.symbol === toSymbol);
-    const toBalanceEl = document.getElementById('toBalance');
-    
-    if (toBalanceEl && toToken) {
-        toBalanceEl.textContent = formatNumber(parseFloat(toToken.balance));
-    }
-    
-    // Update portfolio
-    updatePortfolioTokens();
+    updateWalletUI();
 }
 
-// Reset token balances
-function resetTokenBalances() {
-    const fromBalanceEl = document.getElementById('fromBalance');
-    const toBalanceEl = document.getElementById('toBalance');
-    
-    if (fromBalanceEl) fromBalanceEl.textContent = '0.00';
-    if (toBalanceEl) toBalanceEl.textContent = '0.00';
-    
-    // Reset portfolio
-    const portfolioValue = document.getElementById('portfolioValue');
-    if (portfolioValue) portfolioValue.textContent = '$0.00';
-    
-    document.querySelectorAll('.portfolio-tokens .amount').forEach(el => {
-        el.textContent = '0.00';
-    });
+// Handle chain changes
+function handleChainChanged(chainId) {
+    // Reload the page when network changes
+    window.location.reload();
 }
 
-// Update portfolio
-function updatePortfolio() {
-    let totalValue = 0;
-    
-    appState.userTokens.forEach(token => {
-        const balance = parseFloat(token.balance) || 0;
-        totalValue += balance * (token.priceUSD || 0);
-    });
-    
-    const portfolioValue = document.getElementById('portfolioValue');
-    if (portfolioValue) {
-        portfolioValue.textContent = `$${formatNumber(totalValue)}`;
-    }
-}
-
-// Update portfolio tokens
-function updatePortfolioTokens() {
-    appState.userTokens.forEach(token => {
-        const element = document.getElementById(`token${token.symbol.replace('USD', '')}`);
-        if (element) {
-            const amountEl = element.querySelector('.amount');
-            const fiatEl = element.querySelector('.amount-fiat-small');
-            
-            const balance = parseFloat(token.balance) || 0;
-            const value = balance * (token.priceUSD || 0);
-            
-            if (amountEl) amountEl.textContent = formatNumber(balance);
-            if (fiatEl) fiatEl.textContent = `$${formatNumber(value)}`;
-        }
-    });
-}
-
-// Initialize default tokens
-function initDefaultTokens() {
-    const defaultTokens = {
-        INSDR: { name: 'Airdrop Insiders', color: '#8B5CF6', priceUSD: 0.1576 },
-        AlphaUSD: { name: 'Alpha USD', color: '#3B82F6', priceUSD: 1.00 },
-        BetaUSD: { name: 'Beta USD', color: '#10B981', priceUSD: 1.00 },
-        ThetaUSD: { name: 'Theta USD', color: '#F59E0B', priceUSD: 1.00 }
-    };
-    
-    // Store in app state
-    appState.supportedTokens = defaultTokens;
-}
-
-// Set token on UI
-function setToken(side, symbol) {
-    const token = appState.supportedTokens?.[symbol];
-    if (!token) return;
-    
-    const selector = side === 'from' ? 'from' : 'to';
-    
-    // Update logo
-    const logoElement = document.getElementById(`${selector}TokenLogo`);
-    const fallbackElement = document.getElementById(`${selector}TokenFallback`);
-    
-    if (logoElement && fallbackElement) {
-        logoElement.innerHTML = '';
-        fallbackElement.textContent = symbol.charAt(0);
-        fallbackElement.style.display = 'flex';
-        fallbackElement.style.background = token.color;
-    }
-    
-    // Update text
-    const symbolEl = document.getElementById(`${selector}TokenSymbol`);
-    const nameEl = document.getElementById(`${selector}TokenName`);
-    
-    if (symbolEl) symbolEl.textContent = symbol;
-    if (nameEl) nameEl.textContent = token.name;
-    
-    // Update balance if available
-    if (side === 'from') {
-        updateTokenBalances();
-    }
-}
-
-// Show token modal
-function showTokenModal(side) {
-    const modal = document.getElementById('tokenModal');
-    if (modal) {
-        modal.dataset.side = side;
-        showModal('tokenModal');
-        
-        // Highlight current selection
-        const currentSymbol = document.getElementById(`${side}TokenSymbol`)?.textContent;
-        document.querySelectorAll('.token-item-modal').forEach(item => {
-            const symbol = item.querySelector('.token-symbol-modal')?.textContent;
-            item.classList.toggle('selected', symbol === currentSymbol);
-        });
-    }
-}
-
-// Update token list
-function updateTokenList() {
+// Populate token list
+function populateTokenList() {
     const tokenList = document.getElementById('tokenList');
-    if (!tokenList || !appState.supportedTokens) return;
+    if (!tokenList) return;
     
     tokenList.innerHTML = '';
     
-    Object.entries(appState.supportedTokens).forEach(([symbol, token]) => {
-        const userToken = appState.userTokens.find(t => t.symbol === symbol);
-        const balance = userToken ? parseFloat(userToken.balance) : 0;
-        
-        const tokenElement = document.createElement('div');
-        tokenElement.className = 'token-item-modal';
-        tokenElement.innerHTML = `
+    Object.values(app.tokens).forEach(token => {
+        const tokenItem = document.createElement('div');
+        tokenItem.className = 'token-item-modal';
+        tokenItem.innerHTML = `
             <div class="token-info-modal">
-                <div class="token-logo" style="background: ${token.color}">
-                    <div class="token-fallback">${symbol.charAt(0)}</div>
+                <div class="token-logo">
+                    <div class="token-fallback ${token.symbol.toLowerCase().replace('usd', '')}" 
+                         style="background: ${token.color}">${token.symbol.charAt(0)}</div>
                 </div>
                 <div>
-                    <div class="token-symbol-modal" style="font-weight: 600">${symbol}</div>
-                    <div style="font-size: 12px; color: var(--text-muted)">${token.name}</div>
+                    <div class="token-symbol-modal">${token.symbol}</div>
+                    <div>${token.name}</div>
                 </div>
             </div>
-            <div style="text-align: right">
-                <div style="font-weight: 600">${formatNumber(balance)}</div>
+            <div>
+                <div>${formatNumber(parseFloat(token.balance))}</div>
                 <div style="font-size: 12px; color: var(--text-muted)">
-                    $${formatNumber(balance * (token.priceUSD || 0))}
+                    $${formatNumber(parseFloat(token.balance) * token.price)}
                 </div>
             </div>
         `;
         
-        tokenElement.addEventListener('click', () => selectToken(symbol));
-        tokenList.appendChild(tokenElement);
+        tokenItem.addEventListener('click', () => selectToken(token.symbol));
+        tokenList.appendChild(tokenItem);
     });
 }
 
@@ -503,254 +999,111 @@ function searchTokens() {
     const tokenItems = document.querySelectorAll('.token-item-modal');
     
     tokenItems.forEach(item => {
-        const symbol = item.querySelector('.token-symbol-modal')?.textContent.toLowerCase() || '';
-        const name = item.querySelector('div > div:nth-child(2)')?.textContent.toLowerCase() || '';
+        const symbol = item.querySelector('.token-symbol-modal').textContent.toLowerCase();
+        const name = item.querySelector('.token-info-modal div:nth-child(2) div:nth-child(2)').textContent.toLowerCase();
         
-        item.style.display = (symbol.includes(searchTerm) || name.includes(searchTerm)) 
-            ? 'flex' 
-            : 'none';
+        if (symbol.includes(searchTerm) || name.includes(searchTerm)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
     });
 }
 
 // Select token from modal
 function selectToken(symbol) {
-    const side = document.getElementById('tokenModal')?.dataset.side;
-    if (side) {
-        setToken(side, symbol);
-        hideModal('tokenModal');
-        updateSwapQuote();
-    }
-}
-
-// Switch tokens
-function switchTokens() {
-    const fromSymbol = document.getElementById('fromTokenSymbol')?.textContent;
-    const toSymbol = document.getElementById('toTokenSymbol')?.textContent;
-    const fromAmount = document.getElementById('fromAmount')?.value;
-    const toAmount = document.getElementById('toAmount')?.value;
+    const modal = document.getElementById('tokenModal');
+    const side = modal.dataset.side;
     
-    if (!fromSymbol || !toSymbol) return;
-    
-    // Swap tokens
-    setToken('from', toSymbol);
-    setToken('to', fromSymbol);
-    
-    // Swap amounts
-    const fromAmountInput = document.getElementById('fromAmount');
-    const toAmountInput = document.getElementById('toAmount');
-    
-    if (fromAmountInput && toAmountInput) {
-        fromAmountInput.value = toAmount || '';
-        toAmountInput.value = fromAmount || '';
-    }
-    
-    updateSwapQuote();
-}
-
-// Set max amount
-function setMaxAmount() {
-    if (!appState.isWalletConnected) {
-        showToast('Please connect wallet first', 'warning');
-        return;
-    }
-    
-    const fromSymbol = document.getElementById('fromTokenSymbol')?.textContent;
-    const userToken = appState.userTokens.find(t => t.symbol === fromSymbol);
-    
-    if (userToken) {
-        const balance = parseFloat(userToken.balance);
-        const fromAmountInput = document.getElementById('fromAmount');
-        if (fromAmountInput) {
-            fromAmountInput.value = balance;
-            updateSwapQuote();
-        }
-    }
-}
-
-// Set percentage amount
-function setPercentageAmount(percent) {
-    if (!appState.isWalletConnected) return;
-    
-    const fromSymbol = document.getElementById('fromTokenSymbol')?.textContent;
-    const userToken = appState.userTokens.find(t => t.symbol === fromSymbol);
-    
-    if (userToken) {
-        const balance = parseFloat(userToken.balance);
-        const percentage = parseInt(percent) / 100;
-        const fromAmountInput = document.getElementById('fromAmount');
+    if (side === 'from' || side === 'to') {
+        updateTokenDisplay(side, symbol);
         
-        if (fromAmountInput) {
-            fromAmountInput.value = balance * percentage;
-            updateSwapQuote();
+        // If swapping from and to tokens are the same, switch the other one
+        const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+        const toSymbol = document.getElementById('toTokenSymbol').textContent;
+        
+        if (fromSymbol === toSymbol) {
+            // Find a different token
+            const otherTokens = Object.keys(app.tokens).filter(s => s !== symbol);
+            if (otherTokens.length > 0) {
+                const otherSide = side === 'from' ? 'to' : 'from';
+                updateTokenDisplay(otherSide, otherTokens[0]);
+            }
+        }
+        
+        updateSwapBalances();
+        updateSwapCalculation();
+    }
+    
+    hideModal('tokenModal');
+}
+
+// Save slippage settings
+function saveSlippageSettings() {
+    const customInput = document.getElementById('customSlippage');
+    let slippage = app.slippage;
+    
+    if (customInput.value) {
+        const customValue = parseFloat(customInput.value);
+        if (!isNaN(customValue) && customValue >= 0.1 && customValue <= 50) {
+            slippage = customValue;
         }
     }
+    
+    app.slippage = slippage;
+    document.querySelector('#slippageSettings span').textContent = `Slippage: ${slippage}%`;
+    hideModal('slippageModal');
+    updateSwapCalculation();
+    showToast(`Slippage set to ${slippage}%`, 'success');
 }
 
-// Update swap quote
-function updateSwapQuote() {
-    const fromSymbol = document.getElementById('fromTokenSymbol')?.textContent;
-    const toSymbol = document.getElementById('toTokenSymbol')?.textContent;
-    const fromAmount = parseFloat(document.getElementById('fromAmount')?.value) || 0;
-    
-    if (!fromSymbol || !toSymbol || fromAmount <= 0) {
-        resetSwapDetails();
-        return;
-    }
-    
-    // Get token prices
-    const fromToken = appState.supportedTokens?.[fromSymbol];
-    const toToken = appState.supportedTokens?.[toSymbol];
-    
-    if (!fromToken || !toToken) return;
-    
-    // Calculate exchange rate
-    const exchangeRate = (toToken.priceUSD / fromToken.priceUSD).toFixed(6);
-    const toAmount = fromAmount * exchangeRate;
-    
-    // Update UI
-    const toAmountInput = document.getElementById('toAmount');
-    const exchangeRateEl = document.getElementById('exchangeRate');
-    
-    if (toAmountInput) toAmountInput.value = toAmount.toFixed(6);
-    if (exchangeRateEl) exchangeRateEl.textContent = `1 ${fromSymbol} = ${exchangeRate} ${toSymbol}`;
-    
-    // Calculate fiat values
-    const fromValue = fromAmount * fromToken.priceUSD;
-    const toValue = toAmount * toToken.priceUSD;
-    
-    const fromFiatEl = document.getElementById('fromAmountFiat');
-    const toFiatEl = document.getElementById('toAmountFiat');
-    
-    if (fromFiatEl) fromFiatEl.textContent = `≈ $${formatNumber(fromValue)}`;
-    if (toFiatEl) toFiatEl.textContent = `≈ $${formatNumber(toValue)}`;
-    
-    // Update swap details
-    updateSwapDetails(fromAmount, toAmount, toSymbol);
-    
-    // Update swap button state
-    updateSwapButtonState(fromAmount, fromSymbol);
-}
-
-// Reset swap details
-function resetSwapDetails() {
-    const toAmountInput = document.getElementById('toAmount');
-    const fromFiatEl = document.getElementById('fromAmountFiat');
-    const toFiatEl = document.getElementById('toAmountFiat');
-    
-    if (toAmountInput) toAmountInput.value = '';
-    if (fromFiatEl) fromFiatEl.textContent = '≈ $0.00';
-    if (toFiatEl) toFiatEl.textContent = '≈ $0.00';
-    
-    // Reset detail rows
-    const detailIds = ['expectedOutput', 'lpFee', 'minimumReceived'];
-    detailIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = '0.00';
-    });
-    
-    // Reset swap button
+// Initialize event listeners
+function initEventListeners() {
+    // Swap button
     const swapBtn = document.getElementById('swapBtn');
     if (swapBtn) {
-        if (appState.isWalletConnected) {
-            swapBtn.innerHTML = `
-                <div class="swap-btn-content">
-                    <i class="fas fa-exchange-alt"></i>
-                    <span>Enter Amount</span>
-                </div>
-            `;
-        } else {
-            swapBtn.innerHTML = `
-                <div class="swap-btn-content">
-                    <i class="fas fa-wallet"></i>
-                    <span>Connect Wallet</span>
-                </div>
-            `;
+        swapBtn.addEventListener('click', executeSwap);
+    }
+    
+    // Disconnect button
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    if (disconnectBtn) {
+        disconnectBtn.addEventListener('click', disconnectWallet);
+    }
+    
+    // Refresh transactions button
+    const refreshTransactions = document.getElementById('refreshTransactions');
+    if (refreshTransactions) {
+        refreshTransactions.addEventListener('click', refreshTransactionsList);
+    }
+    
+    // Close modals on outside click
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            hideModal(event.target.id);
         }
-        swapBtn.disabled = !appState.isWalletConnected;
-    }
+    });
 }
 
-// Update swap details
-function updateSwapDetails(fromAmount, toAmount, toSymbol) {
-    const lpFee = toAmount * 0.003; // 0.30%
-    const minReceived = toAmount * 0.99; // 1% slippage
-    
-    const expectedOutputEl = document.getElementById('expectedOutput');
-    const lpFeeEl = document.getElementById('lpFee');
-    const minReceivedEl = document.getElementById('minimumReceived');
-    
-    if (expectedOutputEl) expectedOutputEl.textContent = `${toAmount.toFixed(6)} ${toSymbol}`;
-    if (lpFeeEl) lpFeeEl.textContent = `${lpFee.toFixed(6)} ${toSymbol}`;
-    if (minReceivedEl) minReceivedEl.textContent = `${minReceived.toFixed(6)} ${toSymbol}`;
-}
-
-// Update swap button state
-function updateSwapButtonState(fromAmount, fromSymbol) {
-    const swapBtn = document.getElementById('swapBtn');
-    if (!swapBtn) return;
-    
-    if (!appState.isWalletConnected) {
-        swapBtn.innerHTML = `
-            <div class="swap-btn-content">
-                <i class="fas fa-wallet"></i>
-                <span>Connect Wallet</span>
-            </div>
-        `;
-        swapBtn.disabled = false;
-        return;
-    }
-    
-    // Check balance
-    const userToken = appState.userTokens.find(t => t.symbol === fromSymbol);
-    const hasBalance = userToken && fromAmount <= parseFloat(userToken.balance);
-    
-    if (fromAmount <= 0) {
-        swapBtn.innerHTML = `
-            <div class="swap-btn-content">
-                <i class="fas fa-exchange-alt"></i>
-                <span>Enter Amount</span>
-            </div>
-        `;
-        swapBtn.disabled = true;
-    } else if (!hasBalance) {
-        swapBtn.innerHTML = `
-            <div class="swap-btn-content">
-                <i class="fas fa-exclamation-triangle"></i>
-                <span>Insufficient Balance</span>
-            </div>
-        `;
-        swapBtn.disabled = true;
-    } else {
-        swapBtn.innerHTML = `
-            <div class="swap-btn-content">
-                <i class="fas fa-exchange-alt"></i>
-                <span>Swap Now</span>
-            </div>
-        `;
-        swapBtn.disabled = false;
-    }
-}
-
-// Handle swap
-async function handleSwap() {
-    if (!appState.isWalletConnected) {
+// Execute swap
+function executeSwap() {
+    if (!app.isConnected) {
         showWalletModal();
         return;
     }
     
-    const fromAmount = parseFloat(document.getElementById('fromAmount')?.value) || 0;
-    const fromSymbol = document.getElementById('fromTokenSymbol')?.textContent;
-    const toSymbol = document.getElementById('toTokenSymbol')?.textContent;
-    const toAmount = parseFloat(document.getElementById('toAmount')?.value) || 0;
+    const fromAmount = parseFloat(document.getElementById('fromAmount').value) || 0;
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const toSymbol = document.getElementById('toTokenSymbol').textContent;
+    const toAmount = parseFloat(document.getElementById('toAmount').value) || 0;
     
     if (fromAmount <= 0) {
         showToast('Please enter an amount', 'warning');
         return;
     }
     
-    // Check balance
-    const userToken = appState.userTokens.find(t => t.symbol === fromSymbol);
-    if (!userToken || fromAmount > parseFloat(userToken.balance)) {
+    const fromToken = app.tokens[fromSymbol];
+    if (!fromToken || fromAmount > parseFloat(fromToken.balance)) {
         showToast('Insufficient balance', 'error');
         return;
     }
@@ -758,7 +1111,6 @@ async function handleSwap() {
     // Show processing
     const swapBtn = document.getElementById('swapBtn');
     const originalContent = swapBtn.innerHTML;
-    
     swapBtn.innerHTML = `
         <div class="swap-btn-content">
             <div class="processing-spinner"></div>
@@ -770,18 +1122,15 @@ async function handleSwap() {
     // Simulate swap
     setTimeout(() => {
         // Update balances
-        if (userToken) {
-            userToken.balance = (parseFloat(userToken.balance) - fromAmount).toString();
-        }
+        fromToken.balance = (parseFloat(fromToken.balance) - fromAmount).toString();
         
-        const toUserToken = appState.userTokens.find(t => t.symbol === toSymbol);
-        if (toUserToken) {
-            toUserToken.balance = (parseFloat(toUserToken.balance || 0) + toAmount).toString();
+        const toToken = app.tokens[toSymbol];
+        if (toToken) {
+            toToken.balance = (parseFloat(toToken.balance) + toAmount).toString();
         }
         
         // Update UI
-        updateTokenBalances();
-        updatePortfolio();
+        updateSwapBalances();
         addTransaction(fromSymbol, toSymbol, fromAmount, toAmount);
         
         // Reset form
@@ -795,8 +1144,8 @@ async function handleSwap() {
         // Show success
         showToast(`Swapped ${fromAmount} ${fromSymbol} for ${toAmount.toFixed(6)} ${toSymbol}`, 'success');
         
-        // Update quote
-        updateSwapQuote();
+        // Update calculation
+        updateSwapCalculation();
         
     }, 1500);
 }
@@ -804,10 +1153,11 @@ async function handleSwap() {
 // Add transaction to history
 function addTransaction(from, to, fromAmount, toAmount) {
     const transactionsList = document.getElementById('transactionsList');
-    if (!transactionsList) return;
-    
     const emptyState = transactionsList.querySelector('.empty-state');
-    if (emptyState) emptyState.remove();
+    
+    if (emptyState) {
+        emptyState.remove();
+    }
     
     const transaction = document.createElement('div');
     transaction.className = 'transaction-item';
@@ -823,158 +1173,41 @@ function addTransaction(from, to, fromAmount, toAmount) {
     `;
     
     transactionsList.insertBefore(transaction, transactionsList.firstChild);
+}
+
+// Refresh transactions list
+function refreshTransactionsList() {
+    const refreshBtn = document.getElementById('refreshTransactions');
+    refreshBtn.querySelector('i').classList.add('fa-spin');
     
-    // Limit transactions
-    if (transactionsList.children.length > 10) {
-        transactionsList.removeChild(transactionsList.lastChild);
-    }
+    setTimeout(() => {
+        refreshBtn.querySelector('i').classList.remove('fa-spin');
+        showToast('Transactions refreshed', 'success');
+    }, 1000);
 }
 
-// UI Helper Functions
-function showLoading(message = 'Loading...') {
-    const loadingScreen = document.getElementById('loadingScreen');
-    const loadingStatus = document.getElementById('loadingStatus');
-    const retryBtn = document.getElementById('retryBtn');
+// Load initial data
+function loadInitialData() {
+    // Update wallet UI
+    updateWalletUI();
     
-    if (loadingScreen) {
-        loadingScreen.classList.add('active');
-        appState.isLoading = true;
-    }
+    // Update analytics chart
+    updateChartData('24H');
     
-    if (loadingStatus) {
-        loadingStatus.textContent = message;
-    }
-    
-    if (retryBtn) {
-        retryBtn.style.display = 'none';
-    }
+    // Update pool cards
+    updatePoolCards();
 }
 
-function hideLoading() {
-    const loadingScreen = document.getElementById('loadingScreen');
-    if (loadingScreen) {
-        loadingScreen.classList.remove('active');
-        appState.isLoading = false;
-    }
-}
-
-function showLoadingError(message) {
-    const loadingStatus = document.getElementById('loadingStatus');
-    const retryBtn = document.getElementById('retryBtn');
-    
-    if (loadingStatus) {
-        loadingStatus.textContent = message;
-        loadingStatus.style.color = 'var(--danger)';
-    }
-    
-    if (retryBtn) {
-        retryBtn.style.display = 'flex';
-    }
-}
-
-function showMainContent() {
-    const mainContainer = document.getElementById('mainContainer');
-    if (mainContainer) {
-        mainContainer.style.display = 'block';
-    }
-}
-
-function retryInitialization() {
-    appState.retryCount++;
-    console.log(`Retry attempt ${appState.retryCount}`);
-    
-    if (appState.retryCount <= 3) {
-        initApp();
-    } else {
-        showLoadingError('Maximum retry attempts reached. Please refresh the page.');
-    }
-}
-
-function showModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function hideModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-}
-
+// Show toast notification
 function showToast(message, type = 'info') {
-    // Create toast if doesn't exist
-    let toast = document.getElementById('notificationToast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'notificationToast';
-        toast.className = 'toast';
-        toast.innerHTML = `
-            <div class="toast-content">
-                <i class="fas fa-info-circle"></i>
-                <span id="toastMessage">${message}</span>
-            </div>
-        `;
-        document.body.appendChild(toast);
-        
-        // Add styles
-        const style = document.createElement('style');
-        style.textContent = `
-            .toast {
-                position: fixed;
-                bottom: 24px;
-                right: 24px;
-                background: var(--bg-secondary);
-                color: var(--text-primary);
-                padding: 16px 24px;
-                border-radius: 12px;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                box-shadow: var(--shadow-xl);
-                z-index: 1001;
-                border-left: 4px solid var(--primary);
-                animation: toastSlideIn 0.3s ease, toastFadeOut 0.3s ease 2.7s forwards;
-            }
-            
-            .toast.success { border-left-color: var(--success); }
-            .toast.error { border-left-color: var(--danger); }
-            .toast.warning { border-left-color: var(--warning); }
-            .toast.info { border-left-color: var(--info); }
-            
-            @keyframes toastSlideIn {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            
-            @keyframes toastFadeOut {
-                to {
-                    opacity: 0;
-                    transform: translateX(100%);
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    // Update toast
+    const toast = document.getElementById('notificationToast');
+    const messageEl = document.getElementById('toastMessage');
     const icon = toast.querySelector('i');
-    const messageEl = toast.querySelector('#toastMessage');
+    
+    // Set message
+    messageEl.textContent = message;
     
     // Set type
-    toast.className = `toast ${type}`;
-    
-    // Set icon based on type
     const icons = {
         success: 'fa-check-circle',
         error: 'fa-exclamation-circle',
@@ -982,8 +1215,17 @@ function showToast(message, type = 'info') {
         info: 'fa-info-circle'
     };
     
-    if (icon) icon.className = `fas ${icons[type] || 'fa-info-circle'}`;
-    if (messageEl) messageEl.textContent = message;
+    const colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
+    
+    if (icons[type]) {
+        icon.className = `fas ${icons[type]}`;
+        toast.style.background = colors[type];
+    }
     
     // Show toast
     toast.style.display = 'flex';
@@ -994,20 +1236,9 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-function updateUIState() {
-    updateWalletUI();
-    updateSwapQuote();
-}
-
-function removeAllEventListeners() {
-    // This is a simplified version - in production, you'd want to properly
-    // remove event listeners by storing references
-    const clone = document.body.cloneNode(true);
-    document.body.replaceWith(clone);
-}
-
+// Format number with commas
 function formatNumber(num) {
-    if (isNaN(num) || num === 0) return '0.00';
+    if (isNaN(num)) return '0.00';
     
     if (num >= 1000000) {
         return (num / 1000000).toFixed(2) + 'M';
@@ -1026,58 +1257,26 @@ function formatNumber(num) {
     }
 }
 
-// Add Web3 event listeners
-if (typeof window.ethereum !== 'undefined') {
-    window.ethereum.on('accountsChanged', function(accounts) {
-        console.log('Accounts changed:', accounts);
-        if (accounts.length > 0) {
-            handleWalletConnection(accounts[0]);
-            showToast('Account changed', 'info');
-        } else {
-            disconnectWallet();
-        }
-    });
-    
-    window.ethereum.on('chainChanged', function() {
-        console.log('Chain changed, reloading...');
-        window.location.reload();
-    });
-}
-
 // Add processing spinner style
-document.addEventListener('DOMContentLoaded', function() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .processing-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s linear infinite;
-            margin-right: 8px;
-            display: inline-block;
-        }
-        
-        .btn-retry {
-            padding: 10px 20px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-        }
-        
-        .btn-retry:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-        }
-        
-        .loading-subtext {
-            font-size: 14px;
-            color: var
+const style = document.createElement('style');
+style.textContent = `
+    .processing-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+        display: inline-block;
+    }
+    
+    .fa-spin {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
